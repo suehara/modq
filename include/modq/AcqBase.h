@@ -9,10 +9,10 @@
 
 namespace modq{
 
-  class AcqMessage{
+  class AcqPacket{
     public:
-      AcqMessage(){}
-      virtual ~AcqMessage(){}
+      AcqPacket(){}
+      virtual ~AcqPacket(){}
 
       virtual int getId()const = 0;
       virtual std::vector<char> processToArray()const = 0;
@@ -20,25 +20,51 @@ namespace modq{
   };
 
   class AcqBase {
+    private:
+      struct AcqMessageBox{
+        int id;
+        AcqPacket *send;
+        AcqPacket *reply;
+        pthread_cond_t cond;
+      };
 
-    protected: // singleton: constructor not public
+    protected:
       AcqBase(){}
     public:
-      ~AcqBase(){}
+      virtual ~AcqBase(){}
     
     public:
-      void sendMessage(const AcqMessage *msg, bool needReply, AcqMessage *msgReply, int timeout);
+      // send a packet to acq hardware, waiting a reply
+      void sendMessage(const AcqPacket *msg, bool needReply, AcqPacket *msgReply, int timeout);
+
+      // call to finalize thread
+      void exitThread();
     
     protected:
-      void initailizeThread();
+      // main func of derived class: parse the packet
+      virtual int read(std::vector<char> &data) = 0; // return number of bytes remain
+      virtual void write(std::vector<char> &dataOut, const AcqPacket *msg) = 0;
+
+      // lower-level IO command with the file descriptor: override if above not satisfactory
+      virtual void read(int fd); 
+      virtual void write(int fd, const AcqPacket *msg);
+      
+      // called after configuration of fd
+      void initailizeThread(int fd);
+
+      // called from read(): to send back reply to sendMessage()
+      void setReply(int id, AcqPacket *msgReply);
     
     private:
       static void *entryPoint(void *this);
-      void entryPoint();
+      virtual void entryPoint(); // can be overwritten: assume USB, no need for ethernet
     
     private:
-      std::map<int, std::pair<pthread_cond_t, AcqMessage *> > _messageMap;
+      std::map<int, AcqMessageBox *> _messageMap;
       pthread_mutex_t _messageMapMutex;
+
+      int _fdAcq;
+      int _fdControl;
   };
 
   
