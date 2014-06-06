@@ -42,7 +42,7 @@ namespace modq{
     
     protected:
       // main func of derived class: parse the packet
-      virtual int read(std::vector<char> &data) = 0; // return number of bytes remain
+      virtual int read(std::vector<char> &data) = 0; // return number of bytes remaining
       virtual void write(std::vector<char> &dataOut, const AcqPacket *msg) = 0;
 
       // lower-level IO command with the file descriptor: override if above not satisfactory
@@ -56,7 +56,7 @@ namespace modq{
       void setReply(int id, AcqPacket *msgReply);
     
     private:
-      static void *entryPoint(void *this);
+      static void *entryPoint(void *th);
       virtual void entryPoint(); // can be overwritten: assume USB, no need for ethernet
     
     private:

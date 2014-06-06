@@ -4,6 +4,7 @@
 #define ACQSILDA_H
 
 #include "modq/AcqBase.h"
+#include <string>
 
 namespace modq{
 
@@ -25,8 +26,8 @@ namespace modq{
       
     protected:
       // main func of derived class: parse the packet
-      virtual void read(int fd); 
-      virtual void write(const AcqMessage *msg);
+      virtual int read(std::vector<char> &data); // return number of bytes remaining
+      virtual void write(std::vector<char> &dataOut, const AcqPacket *msg);
       
     private:
       int _ldaId;
