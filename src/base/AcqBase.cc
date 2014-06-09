@@ -5,8 +5,12 @@
 #include <sys/select.h>
 #include <unistd.h>
 
+// C headers
+#include <errno.h>
+
 // STL
 #include <iostream>
+#include <algorithm>
 
 using namespace std;
 
@@ -48,13 +52,19 @@ namespace modq{
           pthread_mutex_lock(&_messageMapMutex);
           
           std::map<int, AcqMessageBox *>::iterator it;
-          for(it = _messageMap.begin(); it != _messageMap.end(); it++){
-            AcqPacket *&packet = it->second->send;
+          for(it = _messageMap.begin(); it != _messageMap.end();){
+            const AcqPacket *&packet = it->second->send;
             if(packet){// not cleared - ready to send
               write(_fdAcq, packet);
               delete packet;
               packet = NULL; // clear
+              if(it->second->needReply == false){ // no reply - packet finished
+                delete it->second;
+                _messageMap.erase(it++);
+                continue; // skip it++
+              }
             }
+            it++;
           }
           
           pthread_mutex_unlock(&_messageMapMutex);
@@ -71,12 +81,65 @@ namespace modq{
     
   }
 
-  void AcqBase::sendMessage(const AcqPacket *msg, bool needReply, AcqPacket *msgReply, int timeout)
+  void AcqBase::sendMessage(const AcqPacket *msg, bool needReply, AcqPacket **msgReply, int timeout)
   {
+    // initialize message box
+    AcqMessageBox *box = new AcqMessageBox;
+    box->send = msg;
+    box->reply = NULL;
+    box->needReply = needReply;
+    if(needReply)
+      pthread_cond_init(&box->cond,NULL);
+    
+    // lock mutex
+    pthread_mutex_lock(&_messageMapMutex);
+    
+    _messageMap[msg->getId()] = box;
+    
+    if(needReply){
+      // reply needed
+      timespec ts;
+      ts.tv_sec = timeout / 1000;
+      ts.tv_nsec = (timeout % 1000) * 1e+6;
+
+      // wait for reply to come
+      int ret = pthread_cond_timedwait(&box->cond, &_messageMapMutex, &ts); 
+
+      if(ret == ETIMEDOUT){
+        cerr << "Error: AcqBase::sendMessage: reply timedout!" << endl;
+      }
+      else if (ret != 0){
+        cerr << "Error: AcqBase::sendMessage: unknown error! " << ret << endl;
+      }
+
+      // reply obtained - or NULL
+      (*msgReply) = box->reply;
+
+      // delete reply
+      pthread_cond_destroy(&box->cond);
+      delete box;
+      _messageMap.erase(msg->getId());
+    }
+    
+    pthread_mutex_unlock(&_messageMapMutex);
   }
   
   void AcqBase::setReply(int id, AcqPacket *msgReply)
   {
+    // lock mutex
+    pthread_mutex_lock(&_messageMapMutex);
+
+    // looking for the reply ID
+    if(_messageMap.find(id) != _messageMap.end()){
+      AcqMessageBox *box = _messageMap.find(id)->second;
+      box->reply = msgReply;
+      
+      // activate signal - I hope this will resume pthread_cond_timedwait() after releasing mutex
+      pthread_cond_signal(&box->cond);
+    }else{
+      cerr << "Error: unknown reply obtained!" << endl;
+    }
+    pthread_mutex_unlock(&_messageMapMutex);
   }
 
   void AcqBase::initailizeThread(int fd)
@@ -107,10 +170,53 @@ namespace modq{
   
   void AcqBase::read(int fd)
   {
+    // this implementation assumes that all packets are atomic - not interrupted by another packet before finishing to receive
+    // if it's not the case please override me.
+    
+    // change fd to non-blocking
+/*    int mode = ::fcntl(_fdAcq, F_GETFL);
+    ::fcntl(fd, F_SETFL, mode | O_NONBLOCK);
+  */
+
+    const int bufsize = 4096;
+    // copy to C array, then to vector
+    char buf[bufsize];
+    int size = 0;
+    do{
+      // system call: from socket to C array
+      size = ::read(fd, buf, bufsize);
+      // C array to vector
+      copy(buf, buf + size, back_inserter(_bufRead));
+    }while(size == bufsize);
+    
+    // call the main part (virtual function)
+    unsigned int remainsize = read(_bufRead);
+    
+    // remove used part of the buffer
+    if(remainsize == 0) // all used
+      _bufRead.clear();
+    else if(remainsize < _bufRead.size()){
+      _bufRead.erase(_bufRead.begin(), _bufRead.end() - remainsize);
+    }
   }
   
   void AcqBase::write(int fd, const AcqPacket *msg)
   {
-  }
+    _bufWrite.clear();
+    // call the main part (virtual function)
+    write(_bufWrite, msg);
+    
+    if(_bufWrite.size() == 0){
+      cerr << "Error: AcqBase::write(): no data received!" << endl;
+      return;
+    }
+    
+    unsigned int writesize = ::write(fd, &_bufWrite.front(), _bufWrite.size());
+    
+    if(writesize != _bufWrite.size()){
+      cerr << "Error: AcqBase::write(): write system call failed! nWrite = " << writesize << ", nToWrite = " << _bufWrite.size() << ", err = " << errno << endl;
+      return;
+    }
+  }  
 
 }

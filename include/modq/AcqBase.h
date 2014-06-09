@@ -23,9 +23,10 @@ namespace modq{
     private:
       struct AcqMessageBox{
         int id;
-        AcqPacket *send;
+        const AcqPacket *send;
         AcqPacket *reply;
         pthread_cond_t cond;
+        bool needReply;
       };
 
     protected:
@@ -35,7 +36,7 @@ namespace modq{
     
     public:
       // send a packet to acq hardware, waiting a reply
-      void sendMessage(const AcqPacket *msg, bool needReply, AcqPacket *msgReply, int timeout);
+      void sendMessage(const AcqPacket *msg, bool needReply, AcqPacket **msgReply, int timeout);
 
       // call to finalize thread
       void exitThread();
@@ -68,6 +69,9 @@ namespace modq{
       int _fdControlOut;
       
       pthread_t _threadId;
+      
+      std::vector<char> _bufRead; // buffer for read() to keep imcomplete packet data
+      std::vector<char> _bufWrite; // buffer for write() to be filled from inherited classes
   };
 
   
