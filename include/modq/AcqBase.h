@@ -64,7 +64,10 @@ namespace modq{
       pthread_mutex_t _messageMapMutex;
 
       int _fdAcq;
-      int _fdControl;
+      int _fdControlIn;
+      int _fdControlOut;
+      
+      pthread_t _threadId;
   };
 
   

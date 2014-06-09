@@ -35,7 +35,7 @@ LD = gcc
 #CPPFLAGS = -O0 -g -Wall -Wno-deprecated -Isrc/common -I/usr/local/root5.26.00/include/root
 CPPFLAGS = -g -Wall -Wno-deprecated -Iinclude
 #LDLIBS := -lstdc++ -lpthread -Lobj -lsuedaq -lnidaqmxbase $(shell root-config --libs)
-LDLIBS := -lstdc++
+LDLIBS := -lstdc++ -lpthread
 
 # suffix definition
 .SUFFIXES:
