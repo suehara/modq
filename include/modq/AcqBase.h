@@ -34,13 +34,19 @@ namespace modq{
     public:
       virtual ~AcqBase(){}
     
+    
+    // Functions called from primary thread /////////////////////////////////////
     public:
       // send a packet to acq hardware, waiting a reply
       void sendMessage(const AcqPacket *msg, bool needReply, AcqPacket **msgReply, int timeout);
 
       // call to finalize thread
       void exitThread();
-    
+    protected:
+      // called after configuration of fd
+      void initailizeThread(int fd);
+
+    // Functions called from acquisition thread /////////////////////////////////
     protected:
       // main func of derived class: parse the packet
       virtual int read(std::vector<char> &data) = 0; // return number of bytes remaining
@@ -50,9 +56,6 @@ namespace modq{
       virtual void read(int fd); 
       virtual void write(int fd, const AcqPacket *msg);
       
-      // called after configuration of fd
-      void initailizeThread(int fd);
-
       // called from read(): to send back reply to sendMessage()
       void setReply(int id, AcqPacket *msgReply);
     
