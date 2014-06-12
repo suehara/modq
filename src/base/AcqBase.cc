@@ -3,6 +3,7 @@
 
 // system calls
 #include <sys/select.h>
+#include <sys/time.h>
 #include <unistd.h>
 
 // C headers
@@ -100,8 +101,11 @@ namespace modq{
     if(needReply){
       // reply needed
       timespec ts;
-      ts.tv_sec = timeout / 1000;
-      ts.tv_nsec = (timeout % 1000) * 1e+6;
+      timeval now;
+      ::gettimeofday(&now,NULL);
+
+      ts.tv_sec = now.tv_sec + timeout / 1000;
+      ts.tv_nsec = now.tv_usec * 1000 + (timeout % 1000) * 1e+6;
 
       // wait for reply to come
       int ret = pthread_cond_timedwait(&box->cond, &_messageMapMutex, &ts); 
