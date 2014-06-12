@@ -16,7 +16,7 @@ namespace modq{
 
       virtual int getId()const = 0;
       virtual std::vector<char> processToArray()const = 0;
-      virtual void processFromArray(const std::vector<char> &str) = 0;
+      virtual int processFromArray(const std::vector<char> &str) = 0;
   };
 
   class AcqBase {
@@ -44,7 +44,7 @@ namespace modq{
       void exitThread();
     protected:
       // called after configuration of fd
-      void initailizeThread(int fd);
+      void initializeThread(int fd);
 
     // Functions called from acquisition thread /////////////////////////////////
     protected:

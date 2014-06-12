@@ -27,9 +27,10 @@ namespace modq{
     FD_SET(_fdAcq,&rfds);
     FD_SET(_fdControlIn, &rfds);
     
+    int nfds = max(_fdControlIn, _fdAcq)+1;
     // main loop
     while(1){
-      int ret = pselect(2, &rfds, NULL, NULL, NULL, NULL);
+      int ret = pselect(nfds, &rfds, NULL, NULL, NULL, NULL);
       if(ret < 0){// error
         cerr << "Fatal error: AcqBase::entryPoint: pselect failed!" << endl;
         return;
@@ -142,7 +143,7 @@ namespace modq{
     pthread_mutex_unlock(&_messageMapMutex);
   }
 
-  void AcqBase::initailizeThread(int fd)
+  void AcqBase::initializeThread(int fd)
   {
     // create control filedesc
     int pipefd[2];

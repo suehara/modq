@@ -12,7 +12,7 @@ int main(int argc, char *argv[])
   
   MainLoop::instance()->entryPoint();
   
-  (*Log::instance())(0) << "abc" << endl;
+  //(*Log::instance())(0) << "abc" << endl;
   
   return 0;
 }

@@ -23,6 +23,7 @@ namespace modq{
     
     virtual std::string format(const std::string &message, int level){
       std::string ret;
+      return ret; // TODO
     }
   protected:
     std::string _format;
