@@ -97,6 +97,8 @@ namespace modq{
     pthread_mutex_lock(&_messageMapMutex);
     
     _messageMap[msg->getId()] = box;
+    char c = 'M';
+    ::write(_fdControlOut,&c,1);
     
     if(needReply){
       // reply needed
