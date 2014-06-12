@@ -152,7 +152,7 @@ namespace modq{
     
     AcqSiLdaPacket *rep = static_cast<AcqSiLdaPacket *>(reply);
     if(!rep || rep->_ldaTypeOperation != AcqSiLdaPacket::ReadReplyOperation || rep->_dataLength != 1){
-      cerr << "Error: AcqSiLda::wreadLdaRegister: reply invalid!" << endl;
+      cerr << "Error: AcqSiLda::readLdaRegister: reply invalid!" << endl;
     }
     return rep->_registers[0].second;
   }
@@ -247,6 +247,13 @@ namespace modq{
   void AcqSiLda::write(int fd, const AcqPacket *msg)
   {
     vector<char> buf = msg->processToArray();
+    
+    cerr << "AcqSiLda::write(): sending ";
+    for(unsigned int i=0;i<buf.size();i++){
+      cerr << hex << (int)buf[i] << " ";
+    }
+    cerr << endl;
+    
     int ret = _soc.sendTo(&buf[0], buf.size());
     if(ret < 0){
       cerr << "Error: AcqSiLda::write(): write failed! errno = " << errno << endl;
