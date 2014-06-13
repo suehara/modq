@@ -121,9 +121,27 @@ namespace modq{
     return data.size() - i;
   }
   
+  bool AcqSiLdaPacket::evenParity(unsigned char c)const
+  {
+    unsigned char ret = 0;
+    for(int n=0;n<8;n++){
+      ret ^= (c>>n)&1;
+    }
+    return ret&1;
+  }
+
   unsigned short AcqSiLdaPacket::fcCalcParity()const
   {
-    return 0; // TODO
+    unsigned short result = 0;
+    
+    result  = evenParity(0x57);
+    result |= evenParity(0xfa) << 1;
+    result |= evenParity(_difId & 0xff) << 2;
+    result |= evenParity((_difId>>8)& 0xff) << 3;
+    result |= evenParity(_fcComma) << 4;
+    result |= evenParity(_fcData) << 5;
+
+    return result;
   }
   
   void AcqSiLdaPacket::printPacket()

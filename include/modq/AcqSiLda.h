@@ -66,6 +66,7 @@ namespace modq{
       void printPacket();
 
       // parity calculation
+      bool evenParity(unsigned char c)const;
       unsigned short fcCalcParity()const;
 
     protected:
