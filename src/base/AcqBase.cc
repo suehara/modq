@@ -23,14 +23,14 @@ namespace modq{
 
   void AcqBase::entryPoint(){
     fd_set rfds;
-    
-    FD_ZERO(&rfds);
-    FD_SET(_fdAcq,&rfds);
-    FD_SET(_fdControlIn, &rfds);
-    
-    int nfds = max(_fdControlIn, _fdAcq)+1;
+   
     // main loop
     while(1){
+      FD_ZERO(&rfds);
+      FD_SET(_fdAcq,&rfds);
+      FD_SET(_fdControlIn, &rfds);
+      int nfds = max(_fdControlIn, _fdAcq)+1;
+
       int ret = pselect(nfds, &rfds, NULL, NULL, NULL, NULL);
       if(ret < 0){// error
         cerr << "Fatal error: AcqBase::entryPoint: pselect failed!" << endl;

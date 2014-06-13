@@ -40,7 +40,7 @@ namespace modq{
       ret.push_back(_dataLength % 0x100);
       
       if(_dataLength > 0){
-        if(_ldaTypeSubsystem == LdaRegisterSubsystem && _ldaTypeOperation == ReadReplyOperation){
+        if(_ldaTypeSubsystem == LdaRegisterSubsystem && (_ldaTypeOperation == ReadOperation || _ldaTypeOperation == WriteOperation)){
           for(int i=0;i<_dataLength;i++){
             ret.push_back(_registers[i].first / 0x100);
             ret.push_back(_registers[i].first % 0x100);
@@ -55,7 +55,7 @@ namespace modq{
             copy(difret.begin(), difret.end(), back_inserter(ret));
           }
         }else{
-          cerr << "Error: AcqSiLdaPacket::processFromArray(): packet format not supported!" << endl;
+          cerr << "Error: AcqSiLdaPacket::processToArray(): packet format not supported!" << endl;
           ret.clear();
         }
       }
@@ -250,7 +250,7 @@ namespace modq{
     
     cerr << "AcqSiLda::write(): sending ";
     for(unsigned int i=0;i<buf.size();i++){
-      cerr << hex << (int)buf[i] << " ";
+      cerr << hex << (int)(unsigned char)buf[i] << " ";
     }
     cerr << endl;
     

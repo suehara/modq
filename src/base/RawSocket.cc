@@ -12,6 +12,7 @@
 #include <iostream>
 #include <unistd.h>
 #include <errno.h>
+#include <sys/time.h>
 
 using namespace std;
 
@@ -91,8 +92,11 @@ namespace modq{
     FD_SET(_fd,&rfds);
     timespec t;
     memset(&t, 0, sizeof(t)); // timeout = 0; return immediately
-    while(pselect(_fd+1, &rfds, NULL, NULL, &t, NULL) >0)
-      ::read(_fd, junk, sizeof(junk));
+    
+    while(pselect(_fd+1, &rfds, NULL, NULL, &t, NULL) >0){
+      int ndrop = ::read(_fd, junk, sizeof(junk));
+      cerr << ndrop << " bytes dropped." << endl;
+    }
     
     // initialization finished
   }
