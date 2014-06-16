@@ -76,11 +76,11 @@ namespace modq{
     _ethernetType += data[i++];
     if(_ethernetType == 0x0809){
       cerr << "AcqSiLdaPacket::processFromArray(): fast command packet arrived, which is not supported. just ignore the packet." << endl;
-      return data.size()-22;
+      return 0;
     }
     else if (_ethernetType != 0x0810 && _ethernetType != 0x0811){
-      cerr << "Error: AcqSiLdaPacket::processFromArray(): ethernetType " << _ethernetType << " not supported!" << endl;
-      return -1;
+      cerr << "Error: AcqSiLdaPacket::processFromArray(): ethernetType " << _ethernetType << " not supported! packet discarded." << endl;
+      return 0;
     }
     
     _ldaTypeSubsystem = data[i++];
@@ -110,11 +110,12 @@ namespace modq{
           return data.size() - i;
         }else{
           // readout not completed
-          return data.size();
+          cerr << "AcqSiLdaPacket::processFromArray(): packet is imcomplete! packet discarded." << endl;
+          return 0; // all data discarded
         }
       }else{
-        cerr << "Error: AcqSiLdaPacket::processFromArray(): packet format not supported!" << endl;
-        return -1;
+        cerr << "Error: AcqSiLdaPacket::processFromArray(): packet format not supported! packet discarded." << endl;
+        return 0;
       }
     }
     // no data: readout completed
