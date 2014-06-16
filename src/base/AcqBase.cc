@@ -50,6 +50,7 @@ namespace modq{
           break;
         }
         else if(c == 'M'){// message
+	  cerr << "hello" << endl;
           // looking for packets stored
           pthread_mutex_lock(&_messageMapMutex);
           

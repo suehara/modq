@@ -188,9 +188,10 @@ namespace modq{
 
   void AcqSiLda::sendFastCommand(int difId, int comma, int cmdId)
   {
+    cerr << "sendFastCommand" << endl;
     AcqPacket *packet = createFastCommandPacket(difId, comma, cmdId);
     sendMessage(packet, false, 0, DefaultTimeout);
-    delete packet;
+    //delete packet;
   }
 
   AcqPacket * AcqSiLda::createLdaRegisterPacket(bool readLda, unsigned short address, unsigned int data)
@@ -264,6 +265,7 @@ namespace modq{
   
   void AcqSiLda::write(int fd, const AcqPacket *msg)
   {
+    cerr << "AcqSiLda::write()" << endl;
     vector<char> buf = msg->processToArray();
     
     cerr << "AcqSiLda::write(): sending ";
