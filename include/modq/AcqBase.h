@@ -6,6 +6,7 @@
 #include <vector>
 #include <map>
 #include <pthread.h>
+#include <string>
 
 namespace modq{
 
@@ -15,8 +16,8 @@ namespace modq{
       virtual ~AcqPacket(){}
 
       virtual int getId()const = 0;
-      virtual std::vector<char> processToArray()const = 0;
-      virtual int processFromArray(const std::vector<char> &str) = 0;
+      virtual std::string processToArray()const = 0;
+      virtual int processFromArray(const std::string &str) = 0;
   };
 
   class AcqBase {
@@ -49,8 +50,8 @@ namespace modq{
     // Functions called from acquisition thread /////////////////////////////////
     protected:
       // main func of derived class: parse the packet
-      virtual int read(std::vector<char> &data) = 0; // return number of bytes remaining
-      virtual void write(std::vector<char> &dataOut, const AcqPacket *msg) = 0;
+      virtual int read(const std::string &data) = 0; // return number of bytes remaining
+      virtual void write(std::string &dataOut, const AcqPacket *msg) = 0;
 
       // lower-level IO command with the file descriptor: override if above not satisfactory
       virtual void read(int fd); 
@@ -73,8 +74,8 @@ namespace modq{
       
       pthread_t _threadId;
       
-      std::vector<char> _bufRead; // buffer for read() to keep imcomplete packet data
-      std::vector<char> _bufWrite; // buffer for write() to be filled from inherited classes
+      std::string _bufRead; // buffer for read() to keep imcomplete packet data
+      std::string _bufWrite; // buffer for write() to be filled from inherited classes
   };
 
   

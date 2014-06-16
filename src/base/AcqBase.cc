@@ -196,7 +196,8 @@ namespace modq{
       // system call: from socket to C array
       size = ::read(fd, buf, bufsize);
       // C array to vector
-      copy(buf, buf + size, back_inserter(_bufRead));
+      //copy(buf, buf + size, back_inserter(_bufRead));
+      _bufRead.append(buf, bufsize);
     }while(size == bufsize);
     
     // call the main part (virtual function)
@@ -206,7 +207,7 @@ namespace modq{
     if(remainsize == 0) // all used
       _bufRead.clear();
     else if(remainsize < _bufRead.size()){
-      _bufRead.erase(_bufRead.begin(), _bufRead.end() - remainsize);
+      _bufRead.substr(_bufRead.size() - remainsize);
     }
   }
   
@@ -221,7 +222,7 @@ namespace modq{
       return;
     }
     
-    unsigned int writesize = ::write(fd, &_bufWrite.front(), _bufWrite.size());
+    unsigned int writesize = ::write(fd, _bufWrite.c_str(), _bufWrite.size());
     
     if(writesize != _bufWrite.size()){
       cerr << "Error: AcqBase::write(): write system call failed! nWrite = " << writesize << ", nToWrite = " << _bufWrite.size() << ", err = " << errno << endl;

@@ -71,8 +71,8 @@ namespace modq{
 
     protected:
       virtual int getId()const{return _pktId;}
-      virtual std::vector<char> processToArray()const;
-      virtual int processFromArray(const std::vector<char> &str);
+      virtual std::string processToArray()const;
+      virtual int processFromArray(const std::string &str);
   };
   
   /*
@@ -108,9 +108,9 @@ namespace modq{
       
     protected:
       // main func of derived class: parse the packet
-      virtual int read(std::vector<char> &data); // return number of bytes remaining
+      virtual int read(const std::string &data); // return number of bytes remaining
 
-      virtual void write(std::vector<char> &dataOut, const AcqPacket *msg){} // no-op, need sendto() instead of write()
+      virtual void write(std::string &dataOut, const AcqPacket *msg){} // no-op, need sendto() instead of write()
       virtual void write(int fd, const AcqPacket *msg);
 
     private:

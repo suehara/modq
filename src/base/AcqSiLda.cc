@@ -7,73 +7,71 @@
 #include <net/if.h>
 #include <iostream>
 #include <errno.h>
+#include <arpa/inet.h>
+
+#include <sstream>
 
 using namespace std;
 
 namespace modq{
 
-  vector<char> AcqSiLdaPacket::processToArray()const
+  string AcqSiLdaPacket::processToArray()const
   {
-    vector<char> ret;
-    copy(_dstMac.getBinary(), _dstMac.getBinary()+6, back_inserter(ret));
-    copy(_srcMac.getBinary(), _srcMac.getBinary()+6, back_inserter(ret));
-    ret.push_back(_ethernetType / 0x100);
-    ret.push_back(_ethernetType % 0x100);
+    ostringstream s;
+    
+    s.write(_dstMac.getBinary(), 6);
+    s.write(_srcMac.getBinary(), 6);
+    s << htons(_ethernetType);
+
     if(_ethernetType == 0x0809){
-      ret.push_back(0xfa);
-      ret.push_back(0x57);
-      ret.push_back(_difId / 0x100);
-      ret.push_back(_difId % 0x100);
-      ret.push_back(_fcComma);
-      ret.push_back(_fcData);
+      s << htons(0xfa57);
+      s << htons(_difId);
+      s << _fcComma;
+      s << _fcData;
       unsigned short parity = fcCalcParity();
-      ret.push_back(parity / 0x100);
-      ret.push_back(parity % 0x100);
+      s << htons(parity);
+
     }else if(_ethernetType == 0x0810){
-      ret.push_back(_ldaTypeSubsystem);
-      ret.push_back(_ldaTypeOperation);
-      ret.push_back(_difId / 0x100);
-      ret.push_back(_difId % 0x100);
-      ret.push_back(_pktId / 0x100);
-      ret.push_back(_pktId % 0x100);
-      ret.push_back(_dataLength / 0x100);
-      ret.push_back(_dataLength % 0x100);
+      s << _ldaTypeSubsystem;
+      s << _ldaTypeOperation;
+      s << htons(_difId);
+      s << htons(_pktId);
+      s << htons(_dataLength);
       
       if(_dataLength > 0){
         if(_ldaTypeSubsystem == LdaRegisterSubsystem && (_ldaTypeOperation == ReadOperation || _ldaTypeOperation == WriteOperation)){
           for(int i=0;i<_dataLength;i++){
-            ret.push_back(_registers[i].first / 0x100);
-            ret.push_back(_registers[i].first % 0x100);
-            ret.push_back(_registers[i].second / 0x1000000);
-            ret.push_back((_registers[i].second % 0x1000000) / 0x10000);
-            ret.push_back((_registers[i].second % 0x10000) / 0x100);
-            ret.push_back(_registers[i].second % 0x100);
+            s << htons(_registers[i].first);
+            s << htonl(_registers[i].second);
           }
         }else if(_ldaTypeSubsystem == DifTransportSubsystem){
           for(int i=0;i<_dataLength;i++){
-            vector<char> difret = _difPackets[i]->processToArray();
-            copy(difret.begin(), difret.end(), back_inserter(ret));
+            string ss = _difPackets[i]->processToArray();
+            s << ss;
           }
         }else{
           cerr << "Error: AcqSiLdaPacket::processToArray(): packet format not supported!" << endl;
-          ret.clear();
+          return string();
         }
       }
     }else{
       cerr << "Error: AcqSiLdaPacket::processToArray(): ethernetType " << _ethernetType << " not supported!" << endl;
-      ret.clear();
+      return string();
     }
-    return ret;
+    return s.str();
   }
   
-  int AcqSiLdaPacket::processFromArray(const std::vector<char> &data)
+  int AcqSiLdaPacket::processFromArray(const std::string &data)
   {
-    _dstMac.setBinary(&data[0]);
-    _srcMac.setBinary(&data[6]);
+    _dstMac.setBinary(data.substr(0,6).c_str());
+    _srcMac.setBinary(data.substr(6,6).c_str());
     
-    int i = 12;
-    _ethernetType = data[i++] * 0x100;
-    _ethernetType += data[i++];
+    istringstream s(data);
+    s.ignore(12);
+    
+    unsigned short temp;
+    s >> temp; _ethernetType = ntohs(temp);
+
     if(_ethernetType == 0x0809){
       cerr << "AcqSiLdaPacket::processFromArray(): fast command packet arrived, which is not supported. just ignore the packet." << endl;
       return -1;
@@ -83,35 +81,29 @@ namespace modq{
       return -1;
     }
     
-    _ldaTypeSubsystem = data[i++];
-    _ldaTypeOperation = data[i++];
-    _difId = data[i++] * 0x100;
-    _difId += data[i++];
-    _pktId = data[i++] * 0x100;
-    _pktId += data[i++];
-    _dataLength = data[i++] * 0x100;
-    _dataLength += data[i++];
+    s >> _ldaTypeSubsystem;
+    s >> _ldaTypeOperation;
+    s >> temp; _difId = ntohs(temp);
+    s >> temp; _pktId = ntohs(temp);
+    s >> temp; _dataLength = ntohs(temp);
 
     cerr << "AcqSiLdaPacket::processFromArray(): dataLength = " << _dataLength << endl;
     if(_dataLength > 0){
       if(_ldaTypeSubsystem == LdaRegisterSubsystem && _ldaTypeOperation == ReadReplyOperation){
         int dl = _dataLength;
-        while(dl-- > 0 && data.size() - i >= 6){
-//          cerr << i << " bytes read, " << data.size() << " in total" << endl;
-          
-          unsigned short address = data[i++] * 0x100;
-          address += data[i++];
-          unsigned int d = data[i++] * 0x1000000;
-          d += data[i++] * 0x10000;
-          d += data[i++] * 0x100;
-          d += data[i++];
-          _registers.push_back(LdaRegister(address,d));
+        while(dl-- > 0 && data.size() - s.tellg() >= 6){
+
+          unsigned short address_n;
+          s >> address_n;
+          unsigned int d_n;
+          s >> d_n;
+          _registers.push_back(LdaRegister(ntohs(address_n),ntohl(d_n)));
         }
         if(dl == -1){
-          if(i < 60)i = 60; // packet size is at minimum 60 bytes, skip padding
+          if(s.tellg() < 60) s.seekg(60);
           // all register read out
-          cerr << "AcqSiLdaPacket::processFromArray(): packet obtained. " << data.size() - i << " bytes remaining." << endl;
-          return data.size() - i;
+          cerr << "AcqSiLdaPacket::processFromArray(): packet obtained. " << data.size() - s.tellg() << " bytes remaining." << endl;
+          return data.size() - s.tellg();
         }else{
           // readout not completed
           cerr << "AcqSiLdaPacket::processFromArray(): packet is imcomplete! packet discarded." << endl;
@@ -123,7 +115,7 @@ namespace modq{
       }
     }
     // no data: readout completed
-    return data.size() - i;
+    return data.size() - s.tellg();
   }
   
   bool AcqSiLdaPacket::evenParity(unsigned char c)const
@@ -247,7 +239,7 @@ namespace modq{
     return packet;
   }
   
-  int AcqSiLda::read(std::vector<char> &data)
+  int AcqSiLda::read(const std::string &data)
   {
     cerr << "AcqSiLda::read(): " << dec << data.size() << " bytes arrived." << endl;
     if(data.size() < 22){
@@ -274,11 +266,11 @@ namespace modq{
   
   void AcqSiLda::write(int fd, const AcqPacket *msg)
   {
-    vector<char> buf = msg->processToArray();
+    string buf = msg->processToArray();
     
     cerr << "AcqSiLda::write(): sending ";
     for(unsigned int i=0;i<buf.size();i++){
-      cerr << hex << (int)(unsigned char)buf[i] << " ";
+      cerr << hex << (int)(unsigned char)buf.c_str()[i] << " ";
     }
     cerr << endl;
     

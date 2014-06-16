@@ -31,6 +31,7 @@ namespace modq{
       ~DifPacket(){}
 
       void createPacket(unsigned short type, unsigned short id, unsigned short modifier, std::vector<unsigned short> &data);
+      void createPacket(unsigned short type, unsigned short id, unsigned short modifier, unsigned short data); // for 1-word command
 
       // output to cout
       void printPacket();
@@ -43,8 +44,8 @@ namespace modq{
 
     protected:
       virtual int getId()const{return _id;}
-      virtual std::vector<char> processToArray()const;
-      virtual int processFromArray(const std::vector<char> &str);
+      virtual std::string processToArray()const;
+      virtual int processFromArray(const std::string &str);
   };
     
 }
