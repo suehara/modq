@@ -50,7 +50,6 @@ namespace modq{
           break;
         }
         else if(c == 'M'){// message
-	  cerr << "hello" << endl;
           // looking for packets stored
           pthread_mutex_lock(&_messageMapMutex);
           
@@ -97,7 +96,8 @@ namespace modq{
     // lock mutex
     pthread_mutex_lock(&_messageMapMutex);
     
-    _messageMap[msg->getId()] = box;
+    int id = msg->getId();
+    _messageMap[id] = box;
     char c = 'M';
     ::write(_fdControlOut,&c,1);
     
@@ -120,13 +120,15 @@ namespace modq{
         cerr << "Error: AcqBase::sendMessage: unknown error! " << ret << endl;
       }
 
+
       // reply obtained - or NULL
       (*msgReply) = box->reply;
 
       // delete reply
       pthread_cond_destroy(&box->cond);
       delete box;
-      _messageMap.erase(msg->getId());
+      _messageMap.erase(id);
+
     }
     
     pthread_mutex_unlock(&_messageMapMutex);

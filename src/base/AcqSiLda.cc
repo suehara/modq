@@ -76,11 +76,11 @@ namespace modq{
     _ethernetType += data[i++];
     if(_ethernetType == 0x0809){
       cerr << "AcqSiLdaPacket::processFromArray(): fast command packet arrived, which is not supported. just ignore the packet." << endl;
-      return 0;
+      return -1;
     }
     else if (_ethernetType != 0x0810 && _ethernetType != 0x0811){
       cerr << "Error: AcqSiLdaPacket::processFromArray(): ethernetType " << _ethernetType << " not supported! packet discarded." << endl;
-      return 0;
+      return -1;
     }
     
     _ldaTypeSubsystem = data[i++];
@@ -97,6 +97,8 @@ namespace modq{
       if(_ldaTypeSubsystem == LdaRegisterSubsystem && _ldaTypeOperation == ReadReplyOperation){
         int dl = _dataLength;
         while(dl-- > 0 && data.size() - i >= 6){
+//          cerr << i << " bytes read, " << data.size() << " in total" << endl;
+          
           unsigned short address = data[i++] * 0x100;
           address += data[i++];
           unsigned int d = data[i++] * 0x1000000;
@@ -105,17 +107,19 @@ namespace modq{
           d += data[i++];
           _registers.push_back(LdaRegister(address,d));
         }
-        if(dl == 0){
+        if(dl == -1){
+          if(i < 60)i = 60; // packet size is at minimum 60 bytes, skip padding
           // all register read out
+          cerr << "AcqSiLdaPacket::processFromArray(): packet obtained. " << data.size() - i << " bytes remaining." << endl;
           return data.size() - i;
         }else{
           // readout not completed
           cerr << "AcqSiLdaPacket::processFromArray(): packet is imcomplete! packet discarded." << endl;
-          return 0; // all data discarded
+          return -1; // all data discarded
         }
       }else{
         cerr << "Error: AcqSiLdaPacket::processFromArray(): packet format not supported! packet discarded." << endl;
-        return 0;
+        return -1;
       }
     }
     // no data: readout completed
@@ -173,6 +177,10 @@ namespace modq{
     if(!rep || rep->_ldaTypeOperation != AcqSiLdaPacket::ReadReplyOperation || rep->_dataLength != 1){
       cerr << "Error: AcqSiLda::readLdaRegister: reply invalid!" << endl;
     }
+    if(rep->_registers.size() != 1){
+      cerr << "Error: AcqSiLda::readLdaRegister: reply register size invalid! 1 required: " << rep->_registers.size() << " obtained." << endl;
+    }
+    
     return rep->_registers[0].second;
   }
   
@@ -189,7 +197,6 @@ namespace modq{
 
   void AcqSiLda::sendFastCommand(int difId, int comma, int cmdId)
   {
-    cerr << "sendFastCommand" << endl;
     AcqPacket *packet = createFastCommandPacket(difId, comma, cmdId);
     sendMessage(packet, false, 0, DefaultTimeout);
     //delete packet;
@@ -242,7 +249,7 @@ namespace modq{
   
   int AcqSiLda::read(std::vector<char> &data)
   {
-    cerr << "AcqSiLda::read(): " << data.size() << " bytes arrived." << endl;
+    cerr << "AcqSiLda::read(): " << dec << data.size() << " bytes arrived." << endl;
     if(data.size() < 22){
       cerr << "AcqSiLda::read(): data size too short, pending. datasize = " << data.size() << endl;
       return data.size();
@@ -254,7 +261,8 @@ namespace modq{
       cerr << "AcqSiLda::read(): packet creation has not finished. Waiting more data." << endl;
       delete packet;
     }
-    else if (n>0){
+    else if (n>=0){
+      cerr << "AcqSiLda::read(): packet obtained." << endl;
       setReply(packet->_pktId, packet);
     }
     else{
@@ -266,7 +274,6 @@ namespace modq{
   
   void AcqSiLda::write(int fd, const AcqPacket *msg)
   {
-    cerr << "AcqSiLda::write()" << endl;
     vector<char> buf = msg->processToArray();
     
     cerr << "AcqSiLda::write(): sending ";
