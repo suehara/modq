@@ -24,25 +24,25 @@ namespace modq{
     util::putUShort(s, _ethernetType);
 
     if(_ethernetType == 0x0809){
-      s << htons(0xfa57);
-      s << htons(_difId);
-      s << _fcComma;
-      s << _fcData;
+      util::putUShort(s, 0xfa57);
+      util::putUShort(s, _difId);
+      s.put(_fcComma);
+      s.put(_fcData);
       unsigned short parity = fcCalcParity();
-      s << htons(parity);
+      util::putUShort(s, parity);
 
     }else if(_ethernetType == 0x0810){
-      s << _ldaTypeSubsystem;
-      s << _ldaTypeOperation;
-      s << htons(_difId);
-      s << htons(_pktId);
-      s << htons(_dataLength);
+      s.put(_ldaTypeSubsystem);
+      s.put(_ldaTypeOperation);
+      util::putUShort(s, _difId);
+      util::putUShort(s, _pktId);
+      util::putUShort(s, _dataLength);
       
       if(_dataLength > 0){
         if(_ldaTypeSubsystem == LdaRegisterSubsystem && (_ldaTypeOperation == ReadOperation || _ldaTypeOperation == WriteOperation)){
           for(int i=0;i<_dataLength;i++){
-            s << htons(_registers[i].first);
-            s << htonl(_registers[i].second);
+            util::putUShort(s, _registers[i].first);
+            util::putUInt(s, _registers[i].second);
           }
         }else if(_ldaTypeSubsystem == DifTransportSubsystem){
           for(int i=0;i<_dataLength;i++){
@@ -68,9 +68,7 @@ namespace modq{
     
     istringstream s(data);
     s.ignore(12);
-    
-    unsigned short temp;
-    s >> temp; _ethernetType = ntohs(temp);
+    _ethernetType = util::getUShort(s);
 
     if(_ethernetType == 0x0809){
       cerr << "AcqSiLdaPacket::processFromArray(): fast command packet arrived, which is not supported. just ignore the packet." << endl;
@@ -80,24 +78,23 @@ namespace modq{
       cerr << "Error: AcqSiLdaPacket::processFromArray(): ethernetType " << _ethernetType << " not supported! packet discarded." << endl;
       return -1;
     }
-    
-    s >> _ldaTypeSubsystem;
-    s >> _ldaTypeOperation;
-    s >> temp; _difId = ntohs(temp);
-    s >> temp; _pktId = ntohs(temp);
-    s >> temp; _dataLength = ntohs(temp);
 
+    _ldaTypeSubsystem = s.get();
+    _ldaTypeOperation = s.get();
+
+    _difId = util::getUShort(s);
+    _pktId = util::getUShort(s);
+    _dataLength = util::getUShort(s);
+    
     cerr << "AcqSiLdaPacket::processFromArray(): dataLength = " << _dataLength << endl;
     if(_dataLength > 0){
       if(_ldaTypeSubsystem == LdaRegisterSubsystem && _ldaTypeOperation == ReadReplyOperation){
         int dl = _dataLength;
         while(dl-- > 0 && data.size() - s.tellg() >= 6){
 
-          unsigned short address_n;
-          s >> address_n;
-          unsigned int d_n;
-          s >> d_n;
-          _registers.push_back(LdaRegister(ntohs(address_n),ntohl(d_n)));
+          unsigned short address_n = util::getUShort(s);
+          unsigned int d_n = util::getUInt(s);
+          _registers.push_back(LdaRegister(address_n,d_n));
         }
         if(dl == -1){
           if(s.tellg() < 60) s.seekg(60);
