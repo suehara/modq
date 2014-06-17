@@ -21,7 +21,7 @@ namespace modq{
     
     s.write(_dstMac.getBinary(), 6);
     s.write(_srcMac.getBinary(), 6);
-    s << htons(_ethernetType);
+    util::putUShort(s, _ethernetType);
 
     if(_ethernetType == 0x0809){
       s << htons(0xfa57);

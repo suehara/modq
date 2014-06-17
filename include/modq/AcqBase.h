@@ -7,9 +7,22 @@
 #include <map>
 #include <pthread.h>
 #include <string>
+#include <istream>
+#include <ostream>
 
 namespace modq{
 
+  namespace util{
+    // a bit adhoc...
+    void putUShort(std::ostream &st, unsigned short s){st.put(s/0x100); st.put(s%0x100);}
+    void putUInt(std::ostream &st, unsigned int i){
+      st.put(i/0x1000000); st.put(i/0x10000%0x100);
+      st.put(i/0x100%0x100); st.put(i%0x100);
+    }
+    unsigned short getUShort(std::istream &st){return st.get() * 0x100 + st.get();}
+    unsigned int getUInt(std::istream &st){return st.get() * 0x1000000 + st.get() * 0x10000 + st.get() * 0x100 + st.get();}
+  }
+  
   class AcqPacket{
     public:
       AcqPacket(){}
