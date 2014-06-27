@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <sstream>
 #include <arpa/inet.h>
+#include <iostream>
 
 using namespace std;
 
@@ -12,30 +13,39 @@ namespace modq{
   string DifPacket::processToArray()const
   {
     ostringstream s;
-    s << htons(_type);
-    s << htons(_id);
-    s << htons(_modifier);
-    s << htons(_data.size());
+
+    if(_useTypeId){
+      util::putUShort(s,_type,_littleEndian);
+      util::putUShort(s,_id,_littleEndian);
+    }
+    util::putUShort(s,_modifier,_littleEndian);
+    util::putUShort(s,_data.size(),_littleEndian);
     for(unsigned int i=0; i < _data.size();i++)
-      s << htons(_data[i]);
-    
+      util::putUShort(s,_data[i],_littleEndian);
+
     return s.str();
   }
   
   int DifPacket::processFromArray(const string &data)
   {
     istringstream s(data);
-    unsigned short temp;
-    s >> temp; _type = ntohs(temp);
-    s >> temp; _id = ntohs(temp);
-    s >> temp; _modifier = ntohs(temp);
+    if(_useTypeId){
+      _type = util::getUShort(s,_littleEndian);
+      _id = util::getUShort(s,_littleEndian);
+    }
+    _modifier = util::getUShort(s);
 
-    unsigned short size;
-    s >> size;
+    unsigned short size = util::getUShort(s,_littleEndian);
     
     for(unsigned short i=0;i<size;i++){
-      s >> temp; _data.push_back(temp);
+      _data.push_back(util::getUShort(s,_littleEndian));
     }
+    
+    cerr << "Dif packet extracted: type = " << _type << ", id = " << _id << ", modifier = " << _modifier << ", data = ";
+    for(unsigned int i=0;i<size;i++){
+      cerr << _data[i] << ", ";
+    }
+    cerr << endl;
     
     return data.size() - s.tellg();
   }

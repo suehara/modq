@@ -10,6 +10,7 @@
 namespace modq{
 
   class AcqSiLda;
+  class DifPacket;
   
   class AcqSiLdaPacket : public AcqPacket{
     friend class AcqSiLda;
@@ -35,6 +36,7 @@ namespace modq{
         WriteAckOperation = 0x03,
         ReadReplyOperation = 0x04,
         ReadNackOperation = 0x05,
+        DifReplyOperation = 0x09,
         BadPacketOperation = 0xff,
       };
       
@@ -63,13 +65,13 @@ namespace modq{
       ~AcqSiLdaPacket(){}
 
       // output to cout
-      void printPacket();
+      virtual void printPacket();
 
       // parity calculation
       bool evenParity(unsigned char c)const;
       unsigned short fcCalcParity()const;
 
-    protected:
+    public:
       virtual int getId()const{return _pktId;}
       virtual std::string processToArray()const;
       virtual int processFromArray(const std::string &str);
@@ -99,12 +101,13 @@ namespace modq{
 
       // fast command
       void sendFastCommand(int difId, int comma, int cmdId); // command ID is defined in DIF class
+      AcqPacket * sendDifPacket(int difId, DifPacket *difPacket, bool needReply);
 
     private:
       // create packets
       AcqPacket * createLdaRegisterPacket(bool read, unsigned short address, unsigned int data);
       AcqPacket * createFastCommandPacket(int difId, int comma, int cmdId);
-      AcqPacket * createDifCommandPacket(int difId, const AcqPacket *difPacket);
+      AcqPacket * createDifCommandPacket(int difId, DifPacket *difPacket);
       
     protected:
       // main func of derived class: parse the packet

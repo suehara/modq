@@ -27,22 +27,29 @@ namespace modq{
       };
       
     public:
-      DifPacket(){}
+      DifPacket() : _littleEndian(true), _useTypeId(true){}
       ~DifPacket(){}
 
       void createPacket(unsigned short type, unsigned short id, unsigned short modifier, std::vector<unsigned short> &data);
       void createPacket(unsigned short type, unsigned short id, unsigned short modifier, unsigned short data); // for 1-word command
+      void setId(int id){_id = id;}
+      
+      void setMode(bool littleEndian, bool useTypeId){_littleEndian = littleEndian; _useTypeId = useTypeId;}
 
       // output to cout
-      void printPacket();
+      virtual void printPacket();
 
     private:
       unsigned short _type;
       unsigned short _id;
       unsigned short _modifier;
       std::vector<unsigned short> _data;
+      
+      // modes
+      bool _littleEndian; // Si: little endian, Sc: big endian
+      bool _useTypeId;   // Si: with type&id, Sc: without type&id
 
-    protected:
+    public:
       virtual int getId()const{return _id;}
       virtual std::string processToArray()const;
       virtual int processFromArray(const std::string &str);

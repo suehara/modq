@@ -32,13 +32,14 @@ namespace modq{
       int nfds = max(_fdControlIn, _fdAcq)+1;
 
       int ret = pselect(nfds, &rfds, NULL, NULL, NULL, NULL);
+
       if(ret < 0){// error
         cerr << "Fatal error: AcqBase::entryPoint: pselect failed!" << endl;
         return;
       }
       if(FD_ISSET(_fdControlIn, &rfds)){
         // control socket is active
-        
+
         // read first byte
         char c;
         if(::read(_fdControlIn, &c, 1) <= 0){
@@ -162,6 +163,7 @@ namespace modq{
     
     _fdAcq = fd;
     
+    pthread_mutex_init(&_messageMapMutex, NULL);
     pthread_create(&_threadId, NULL, AcqBase::entryPoint, (void *)this);
   }
   
@@ -197,7 +199,7 @@ namespace modq{
       size = ::read(fd, buf, bufsize);
       // C array to vector
       //copy(buf, buf + size, back_inserter(_bufRead));
-      _bufRead.append(buf, bufsize);
+      _bufRead.append(buf, size);
     }while(size == bufsize);
     
     // call the main part (virtual function)

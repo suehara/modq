@@ -1,5 +1,6 @@
 // AcqSiLda.cc
 #include "modq/AcqSiLda.h"
+#include "modq/DifPacket.h"
 
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -45,7 +46,8 @@ namespace modq{
             util::putUInt(s, _registers[i].second);
           }
         }else if(_ldaTypeSubsystem == DifTransportSubsystem){
-          for(int i=0;i<_dataLength;i++){
+//          for(int i=0;i<_dataLength;i++){
+          for(unsigned int i=0;i<_difPackets.size();i++){
             string ss = _difPackets[i]->processToArray();
             s << ss;
           }
@@ -70,11 +72,11 @@ namespace modq{
     s.ignore(12);
     _ethernetType = util::getUShort(s);
 
-    if(_ethernetType == 0x0809){
+    if(_ethernetType == FastCommandType){
       cerr << "AcqSiLdaPacket::processFromArray(): fast command packet arrived, which is not supported. just ignore the packet." << endl;
       return -1;
     }
-    else if (_ethernetType != 0x0810 && _ethernetType != 0x0811){
+    else if (_ethernetType != NormalLdaType && _ethernetType != DifDataType){
       cerr << "Error: AcqSiLdaPacket::processFromArray(): ethernetType " << _ethernetType << " not supported! packet discarded." << endl;
       return -1;
     }
@@ -86,7 +88,8 @@ namespace modq{
     _pktId = util::getUShort(s);
     _dataLength = util::getUShort(s);
     
-    cerr << "AcqSiLdaPacket::processFromArray(): dataLength = " << _dataLength << endl;
+    cerr << "AcqSiLdaPacket::processFromArray(): ethernetType = " << _ethernetType << ", subsystem = " << _ldaTypeSubsystem
+        << ", operation = " << _ldaTypeOperation << ", difId = " << _difId << ", pktId = " << _pktId << ", dataLength = " << _dataLength << endl;
     if(_dataLength > 0){
       if(_ldaTypeSubsystem == LdaRegisterSubsystem && _ldaTypeOperation == ReadReplyOperation){
         int dl = _dataLength;
@@ -105,6 +108,15 @@ namespace modq{
           // readout not completed
           cerr << "AcqSiLdaPacket::processFromArray(): packet is imcomplete! packet discarded." << endl;
           return -1; // all data discarded
+        }
+      }else if((_ldaTypeSubsystem == DifTransportSubsystem) && (_ethernetType == NormalLdaType) && (_ldaTypeOperation == DifReplyOperation)){
+        int npos = s.tellg();
+        while(s.tellg() < npos + _dataLength){
+          DifPacket *dp = new DifPacket;
+          int nremain = dp->processFromArray(data.substr(s.tellg()));
+          _difPackets.push_back(dp);
+          cerr << "nremain = " << nremain << endl;
+          s.seekg(data.size() - nremain);
         }
       }else{
         cerr << "Error: AcqSiLdaPacket::processFromArray(): packet format not supported! packet discarded." << endl;
@@ -191,6 +203,15 @@ namespace modq{
     //delete packet;
   }
 
+  AcqPacket * AcqSiLda::sendDifPacket(int difId, DifPacket * difPacket, bool needReply)
+  {
+    AcqPacket *packet = createDifCommandPacket(difId, difPacket);
+    AcqPacket *reply = NULL;
+    sendMessage(packet, needReply, &reply, DefaultTimeout);
+    
+    return reply;
+  }
+
   AcqPacket * AcqSiLda::createLdaRegisterPacket(bool readLda, unsigned short address, unsigned int data)
   {
     AcqSiLdaPacket *packet = new AcqSiLdaPacket;
@@ -201,7 +222,7 @@ namespace modq{
     packet->_ldaTypeOperation = (readLda ? AcqSiLdaPacket::ReadOperation : AcqSiLdaPacket::WriteOperation);
     packet->_difId = 0; // not used
     packet->_pktId = getNextId();
-    packet->_dataLength = 1; // only one packet
+    packet->_dataLength = 1;
     packet->_registers.push_back(AcqSiLdaPacket::LdaRegister(address, data));
     
     return packet;
@@ -220,18 +241,19 @@ namespace modq{
     return packet;
   }
   
-  AcqPacket * AcqSiLda::createDifCommandPacket(int difId, const AcqPacket *difPacket)
+  AcqPacket * AcqSiLda::createDifCommandPacket(int difId, DifPacket *difPacket)
   {
     AcqSiLdaPacket *packet = new AcqSiLdaPacket;
     packet->_dstMac = _soc.getDstMac();
     packet->_srcMac = _soc.getSrcMac();
     packet->_ethernetType = AcqSiLdaPacket::NormalLdaType;
     packet->_ldaTypeSubsystem = AcqSiLdaPacket::DifTransportSubsystem;
-    packet->_ldaTypeOperation = 0;
+    packet->_ldaTypeOperation = AcqSiLdaPacket::ReadOperation;
     packet->_difId = difId;
     packet->_pktId = getNextId();
-    packet->_dataLength = 1; // only one packet
+    packet->_dataLength = 10; // data size; tempolarily
     packet->_difPackets.push_back(difPacket);
+    difPacket->setId(packet->_pktId);
     
     return packet;
   }
@@ -239,6 +261,11 @@ namespace modq{
   int AcqSiLda::read(const std::string &data)
   {
     cerr << "AcqSiLda::read(): " << dec << data.size() << " bytes arrived." << endl;
+    for(unsigned int i=0;i<data.size();i++){
+      cerr << hex << (int)(unsigned char)data.c_str()[i] << " ";
+    }
+    cerr << endl;
+
     if(data.size() < 22){
       cerr << "AcqSiLda::read(): data size too short, pending. datasize = " << data.size() << endl;
       return data.size();
@@ -270,6 +297,8 @@ namespace modq{
       cerr << hex << (int)(unsigned char)buf.c_str()[i] << " ";
     }
     cerr << endl;
+
+    if(buf.size() < 60)buf.resize(60);
     
     int ret = _soc.sendTo(&buf[0], buf.size());
     if(ret < 0){

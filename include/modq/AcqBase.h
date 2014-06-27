@@ -14,13 +14,27 @@ namespace modq{
 
   namespace util{
     // a bit adhoc...
-    inline void putUShort(std::ostream &st, unsigned short s){st.put(s/0x100); st.put(s%0x100);}
-    inline void putUInt(std::ostream &st, unsigned int i){
-      st.put(i/0x1000000); st.put(i/0x10000%0x100);
-      st.put(i/0x100%0x100); st.put(i%0x100);
+    inline void putUShort(std::ostream &st, unsigned short s, bool le = false){
+      if(le){st.put(s%0x100); st.put(s/0x100);}
+      else  {st.put(s/0x100); st.put(s%0x100);}
     }
-    inline unsigned short getUShort(std::istream &st){return st.get() * 0x100 + st.get();}
-    inline unsigned int getUInt(std::istream &st){return st.get() * 0x1000000 + st.get() * 0x10000 + st.get() * 0x100 + st.get();}
+    inline void putUInt(std::ostream &st, unsigned int i, bool le = false){
+      if(le){
+        st.put(i%0x100); st.put(i/0x100%0x100);
+        st.put(i/0x10000%0x100); st.put(i/0x1000000);
+      }else{
+        st.put(i/0x1000000); st.put(i/0x10000%0x100);
+        st.put(i/0x100%0x100); st.put(i%0x100);
+      }
+    }
+    inline unsigned short getUShort(std::istream &st, bool le = false){
+      if(le)return st.get() + st.get() * 0x100;
+      else  return st.get() * 0x100 + st.get();
+    }
+    inline unsigned int getUInt(std::istream &st, bool le = false){
+      if(le) return st.get() + st.get() * 0x100 + st.get() * 0x10000 + st.get() * 0x1000000;
+      else   return st.get() * 0x1000000 + st.get() * 0x10000 + st.get() * 0x100 + st.get();
+    }
   }
   
   class AcqPacket{
@@ -31,6 +45,8 @@ namespace modq{
       virtual int getId()const = 0;
       virtual std::string processToArray()const = 0;
       virtual int processFromArray(const std::string &str) = 0;
+
+      virtual void printPacket(){}
   };
 
   class AcqBase {
@@ -56,6 +72,7 @@ namespace modq{
 
       // call to finalize thread
       void exitThread();
+
     protected:
       // called after configuration of fd
       void initializeThread(int fd);
